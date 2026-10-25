@@ -19,9 +19,7 @@
       overflow-x: hidden;
     }
 
-    /* elements that only exist in the old web theme */
-    .ow-only,
-    .clean-only,
+    /* elements that only exist in the matrix theme */
     .mx-only { display: none !important; }
 
     /* ── CANVAS BACKGROUND ── */

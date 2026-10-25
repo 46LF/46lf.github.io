@@ -42,18 +42,8 @@ body::after {
   background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.85) 100%);
 }
 
-/* elements that belong to other themes */
-.neon-only,
-.ow-only,
-.clean-only { display: none !important; }
-
-/* …except a few bits reused as details */
-h3.ow-only,
-.new.ow-only,
-footer .badges.ow-only,
-footer .updated.ow-only,
-footer p.ow-only,
-footer p.clean-only { display: revert !important; }
+/* elements that only exist in the neon theme */
+.neon-only { display: none !important; }
 
 #bg-canvas {
   position: fixed;
