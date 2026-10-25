@@ -322,84 +322,87 @@
       });
     });
 
-    /* ── PIXEL SHARK (matrix): eats the menu before an option runs ── */
-    const SHARK_COLORS = { D: '#3e4c5c', B: '#7d91a6', W: '#e6eef4', K: '#000', T: '#fff', M: '#7a0016' };
-    const SHARK_FRAMES = [
-      [ // mouth closed
-        '................DD',
-        '...............DDD',
-        '..............DDDD',
-        'DD...........DDDDD',
-        'DDD.....DDDDDDDDDDDDDDDDD',
-        '.DDD..DDBBBBBBBBBBBBBBBBBBDD',
-        '..DDDDBBBBBBBBBBBBBBBBBBBBKBBD',
-        '..DDDDBBBBBBBBBBBBBBBBBBBBBBBBD',
-        '.DDD..BBWWWWWWWWWWWWWWWWTWTWTWD',
-        'DDD.....WWWWWWWWWWWWWWWWWWWWWD',
-        'DD........WWWWWWWWWWWWWWWWWW',
-        '............BB.......BB',
-        '...........BB.......BB',
-        '',
-      ],
-      [ // mouth open
-        '................DD',
-        '...............DDD',
-        '..............DDDD',
-        'DD...........DDDDD',
-        'DDD.....DDDDDDDDDDDDDDDDD',
-        '.DDD..DDBBBBBBBBBBBBBBBBBBDD',
-        '..DDDDBBBBBBBBBBBBBBBBBBBBKBBD',
-        '..DDDDBBBBBBBBBBBBBBBBBBBBBBBBD',
-        '.DDD..BBWWWWWWWWWWWWWWWWTMTMTMT',
-        'DDD.....WWWWWWWWWWWWWWMMMMMMMM',
-        'DD........WWWWWWWWWWWWMMMMMMM',
-        '...........WWWWWWWWWWWTMTMTMT',
-        '............BB.....WWWWWWWWWD',
-        '...........BB',
-      ],
-    ];
-    const SHARK_W = 32;
-    const SHARK_H = SHARK_FRAMES[0].length;
+    /* ── PIXEL SHARK (matrix): a front-facing head pops up and eats the menu ── */
+    const SHARK_W = 41; // odd, so the head is symmetric around a center pixel
+    const SHARK_H = 35;
 
-    // pixel rows -> svg rects (horizontal runs merged)
-    function sharkSVG(rows, cls) {
-      let rects = '';
-      rows.forEach((row, y) => {
-        for (let x = 0; x < row.length; ) {
-          const c = row[x];
-          let run = 1;
-          while (row[x + run] === c) run++;
-          if (SHARK_COLORS[c]) rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${SHARK_COLORS[c]}"/>`;
-          x += run;
+    // builds one frame as a set of "x,y" pixels: the head's silhouette is computed
+    // as a mask and only its edge is kept, so the shark is purple outline only
+    function sharkPixels(open) {
+      const cx = (SHARK_W - 1) / 2;
+      const mouth = { y: open ? 25 : 22, rx: 9, ry: open ? 4.5 : 0 };
+      const inCavity = (x, y) => open && ((x - cx) / mouth.rx) ** 2 + ((y - mouth.y) / mouth.ry) ** 2 <= 1;
+      const inHead = (x, y) => {
+        const dx = Math.abs(x - cx), dy = y - 19;
+        // wide head: pointy snout on top, round jaw below (the jaw drops when open)
+        const head = dy < 0
+          ? (dx / 15) ** 2 + Math.abs(dy / 9) ** 1.3 <= 1
+          : (dx / 15) ** 2 + (dy / (open ? 13.5 : 10)) ** 2 <= 1;
+        // tall, narrow dorsal fin
+        const fin = y <= 12 && dx <= y * 0.33 + 0.5;
+        // pectoral fins spreading out like wings
+        const t = y - 23;
+        const pec = t >= 0 && t <= 8 && dx >= 12 + t * 0.95 && dx <= 15 + t * 0.7;
+        return (head || fin || pec) && !inCavity(x, y);
+      };
+      const px = new Set();
+      for (let y = 0; y < SHARK_H; y++) for (let x = 0; x < SHARK_W; x++)
+        if (inHead(x, y) && (!inHead(x - 1, y) || !inHead(x + 1, y) || !inHead(x, y - 1) || !inHead(x, y + 1))) px.add(`${x},${y}`);
+      // eyes, wide apart on the sides of the head
+      for (const ex of [cx - 11, cx + 10]) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) px.add(`${ex + dx},${16 + dy}`);
+      if (open) {
+        // triangular teeth along both jaws
+        for (const off of [-6, -3, 0, 3, 6]) {
+          const tx = cx + off;
+          const k = Math.sqrt(1 - (off / mouth.rx) ** 2);
+          const top = Math.ceil(mouth.y - mouth.ry * k);
+          const bottom = Math.floor(mouth.y + mouth.ry * k);
+          for (const [dx, dy] of [[-1, 0], [0, 0], [1, 0], [0, 1], [0, 2]]) {
+            px.add(`${tx + dx},${top + dy}`);
+            px.add(`${tx + dx},${bottom - dy}`);
+          }
         }
-      });
-      return `<svg class="${cls}" viewBox="0 0 ${SHARK_W} ${SHARK_H}" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+      } else {
+        // closed: a downturned line of interlocked teeth
+        for (let x = cx - mouth.rx; x <= cx + mouth.rx; x++) {
+          const dx = Math.abs(x - cx);
+          px.add(`${x},${mouth.y + Math.round((dx / mouth.rx) ** 2 * 3) + (dx % 2)}`);
+        }
+      }
+      return px;
+    }
+
+    function sharkSVG(open) {
+      // merge horizontal runs into single rects
+      const px = sharkPixels(open);
+      let rects = '';
+      for (let y = 0; y < SHARK_H; y++) {
+        for (let x = 0; x < SHARK_W; x++) {
+          if (!px.has(`${x},${y}`)) continue;
+          let run = 1;
+          while (px.has(`${x + run},${y}`)) run++;
+          rects += `<rect x="${x}" y="${y}" width="${run}" height="1"/>`;
+          x += run - 1;
+        }
+      }
+      return `<svg class="shark-${open ? 'open' : 'closed'}" viewBox="0 0 ${SHARK_W} ${SHARK_H}" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
     }
 
     const gameMenu = document.querySelector('.game-menu');
-    const SHARK_HTML = sharkSVG(SHARK_FRAMES[0], 'shark-closed') + sharkSVG(SHARK_FRAMES[1], 'shark-open');
+    const SHARK_HTML = sharkSVG(false) + sharkSVG(true);
     let sharkBusy = false;
     let menuEaten = null;
 
-    // clip-path that hides everything left of `x`, with a jagged bite edge
-    function biteClip(x, h) {
-      const pts = [`${x}px 0`, '100% 0', '100% 100%', `${x}px 100%`];
-      for (let y = h, k = 0; y > 0; y -= 12, k++) pts.push(`${x + (k % 2 ? 0 : 12)}px ${y}px`);
-      return `polygon(${pts.join(', ')})`;
-    }
-
-    function spawnCrumb(x, y) {
+    function spawnCrumb(from, to) {
       const crumb = document.createElement('div');
       crumb.className = 'shark-crumb';
-      crumb.style.left = x + 'px';
-      crumb.style.top = y + 'px';
+      crumb.style.left = from.x + 'px';
+      crumb.style.top = from.y + 'px';
       document.body.appendChild(crumb);
-      const dx = (Math.random() - 0.3) * 120;
-      const dy = (Math.random() - 0.5) * 80;
       crumb.animate([
-        { transform: 'translate(0, 0)', opacity: 1 },
-        { transform: `translate(${dx}px, ${dy + 140}px)`, opacity: 0 },
-      ], { duration: 600 + Math.random() * 400, easing: 'cubic-bezier(.3,.6,.6,1)' }).finished.then(() => crumb.remove());
+        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+        { transform: `translate(${to.x - from.x}px, ${to.y - from.y}px) scale(0.3)`, opacity: 0.2 },
+      ], { duration: 350 + Math.random() * 200, easing: 'cubic-bezier(.6,0,.9,.5)' }).finished.then(() => crumb.remove());
     }
 
     // resolves false if a shark is already busy
@@ -407,55 +410,64 @@
       if (sharkBusy || busy) return false;
       if (!animated()) return true;
       sharkBusy = true;
+      root.classList.add('shark-time');
 
-      const r = gameMenu.getBoundingClientRect();
-      const px = Math.max(4, Math.round(r.height / 11));
-      const w = SHARK_W * px;
-      const h = SHARK_H * px;
-      const mouth = w * 0.95; // the mouth sits at the shark's right edge...
-      const top = r.top + r.height / 2 - 9.5 * px; // ...around pixel row 9.5
-
+      const size = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.7, 480);
       const shark = document.createElement('div');
       shark.className = 'shark';
-      shark.style.width = w + 'px';
-      shark.style.height = h + 'px';
-      shark.style.top = top + 'px';
+      shark.style.width = size + 'px';
+      shark.style.height = size * SHARK_H / SHARK_W + 'px';
       shark.innerHTML = SHARK_HTML;
       document.body.appendChild(shark);
 
-      // the shark swims at a constant speed; the bite edge follows its mouth
-      const EAT_MS = 1100;
-      const speed = r.width / EAT_MS; // px per ms
-      const start = r.left - mouth - 60;
-      const end = window.innerWidth + 40;
+      const head = shark.getBoundingClientRect();
+      const mouth = { x: head.left + head.width / 2, y: head.top + head.height * 25 / SHARK_H };
 
-      const swim = shark.animate([
-        { transform: `translateX(${start}px)` },
-        { transform: `translateX(${end}px)` },
-      ], { duration: (end - start) / speed, easing: 'linear' });
+      // 1. pops up in the middle of the screen, in pixel-y steps
+      await shark.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }],
+        { duration: 260, easing: 'steps(5, end)', fill: 'forwards' }).finished;
 
+      // 2. opens wide and sucks the menu in
+      await wait(120);
+      shark.classList.add('is-open');
+      const r = gameMenu.getBoundingClientRect();
+      const dx = mouth.x - (r.left + r.width / 2);
+      const dy = mouth.y - (r.top + r.height / 2);
       menuEaten = gameMenu.animate([
-        { clipPath: biteClip(-14, r.height) },
-        { clipPath: biteClip(r.width + 2, r.height) },
-      ], { duration: EAT_MS, delay: 60 / speed, easing: 'linear', fill: 'forwards' });
-
+        { transform: 'translate(0, 0) scale(1) rotate(0)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.04) rotate(-8deg)`, opacity: 0.6 },
+      ], { duration: 480, easing: 'cubic-bezier(.55,0,.9,.4)', fill: 'forwards' });
       const crumbs = setInterval(() => {
-        const sx = new DOMMatrix(getComputedStyle(shark).transform).m41 + mouth;
-        if (sx > r.left && sx < r.right) {
-          for (let k = 0; k < 3; k++) spawnCrumb(sx, r.top + Math.random() * r.height);
+        for (let k = 0; k < 3; k++) {
+          spawnCrumb({ x: r.left + Math.random() * r.width, y: r.top + Math.random() * r.height }, mouth);
         }
-      }, 60);
-
+      }, 50);
       await menuEaten.finished;
       clearInterval(crumbs);
-      swim.finished.then(() => shark.remove());
+      menuEaten.effect.setKeyframes([{ opacity: 0 }]); // swallowed
+
+      // 3. chomp
+      shark.classList.remove('is-open');
+      await shark.animate([
+        { transform: 'scale(1) translate(0, 0)' },
+        { transform: 'scale(1.08) translate(-6px, 3px)' },
+        { transform: 'scale(1.04) translate(6px, -3px)' },
+        { transform: 'scale(1.06) translate(-4px, 2px)' },
+        { transform: 'scale(1) translate(0, 0)' },
+      ], { duration: 280, easing: 'steps(4, end)' }).finished;
+
+      // 4. vanishes
       await wait(150);
+      await shark.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 0 }],
+        { duration: 220, easing: 'steps(4, end)', fill: 'forwards' }).finished;
+      shark.remove();
       sharkBusy = false;
       return true;
     }
 
     // the menu respawns after it was eaten
     function restoreMenu() {
+      root.classList.remove('shark-time');
       if (!menuEaten) return;
       menuEaten.cancel();
       menuEaten = null;

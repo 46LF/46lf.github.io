@@ -493,12 +493,18 @@ h3::before { content: '// '; color: var(--purple); }
 /* ── PIXEL SHARK ── */
 .shark {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 50%;
+  left: 50%;
   z-index: 160;
+  translate: -50% -50%;
   pointer-events: none;
-  filter: drop-shadow(0 0 10px rgba(177, 76, 255, 0.55));
+  fill: var(--purple);
+  filter: drop-shadow(0 0 6px rgba(177, 76, 255, 0.7));
 }
+
+/* everything but the menu fades out while the shark is on screen */
+#hero > * { transition: opacity 0.25s; }
+.shark-time #hero > :not(.game-menu) { opacity: 0.12; }
 
 .shark svg {
   position: absolute;
@@ -507,26 +513,18 @@ h3::before { content: '// '; color: var(--purple); }
   height: 100%;
 }
 
-/* chomp: alternate the closed and open frames */
-.shark-closed { animation: chomp 0.24s step-end infinite; }
-.shark-open   { animation: chomp 0.24s step-end infinite -0.12s; }
-
-@keyframes chomp {
-  0%   { opacity: 1; }
-  50%  { opacity: 0; }
-}
+.shark .shark-open,
+.shark.is-open .shark-closed { visibility: hidden; }
+.shark.is-open .shark-open { visibility: visible; }
 
 .shark-crumb {
   position: fixed;
   z-index: 159;
   width: 6px;
   height: 6px;
-  background: var(--green);
-  box-shadow: 0 0 6px var(--green);
+  background: var(--purple);
   pointer-events: none;
 }
-
-.shark-crumb:nth-child(3n) { background: var(--purple); box-shadow: 0 0 6px var(--purple); }
 
 /* ── ANIMATIONS ── */
 .blink { animation: blink 1s steps(2, start) infinite; }
