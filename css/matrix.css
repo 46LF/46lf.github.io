@@ -144,11 +144,11 @@ nav ul a::before { content: '> '; color: var(--purple); }
 .mx-logo {
   margin: 0;
   font-family: var(--logo);
-  font-size: clamp(2.2rem, 10vw, 5.6rem);
+  font-size: clamp(4rem, 24vw, 9rem);
   font-weight: 900;
   font-style: italic;
   line-height: 0.95;
-  letter-spacing: 2px;
+  letter-spacing: 6px;
   background: var(--chrome);
   -webkit-background-clip: text;
   background-clip: text;
@@ -156,8 +156,6 @@ nav ul a::before { content: '> '; color: var(--purple); }
   filter: drop-shadow(0 0 1px #fff) drop-shadow(3px 3px 0 var(--purple)) drop-shadow(0 0 18px rgba(0, 255, 65, 0.55));
   overflow-wrap: anywhere;
 }
-
-.mx-logo span { display: block; font-size: 0.62em; letter-spacing: 8px; }
 
 .mx-edition {
   display: inline-block;
