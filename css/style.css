@@ -20,7 +20,8 @@
     }
 
     /* elements that only exist in the old web theme */
-    .ow-only { display: none !important; }
+    .ow-only,
+    .clean-only { display: none !important; }
 
     /* ── CANVAS BACKGROUND ── */
     #bg-canvas {

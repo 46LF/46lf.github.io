@@ -1,23 +1,25 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="neon">
+<html lang="pt-BR" data-theme="clean">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>anderssongamer666 | Dev Portfolio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/clean.css" id="css-clean">
   <link rel="stylesheet" href="css/style.css" id="css-neon">
   <link rel="stylesheet" href="css/oldweb.css" id="css-oldweb">
   <script>
-    /* ── THEME (neon | oldweb) ── */
+    /* ── THEME (clean | oldweb | neon) ── */
+    const THEMES = ['clean', 'oldweb', 'neon'];
+    const THEME_LABELS = { clean: 'Clean', oldweb: 'Old Web', neon: 'Neon' };
     function applyTheme(theme) {
       document.documentElement.dataset.theme = theme;
-      document.getElementById('css-neon').disabled = theme !== 'neon';
-      document.getElementById('css-oldweb').disabled = theme !== 'oldweb';
+      THEMES.forEach(t => { document.getElementById('css-' + t).disabled = t !== theme; });
     }
-    let savedTheme = 'neon';
-    try { savedTheme = localStorage.getItem('theme') || 'neon'; } catch (e) {}
-    applyTheme(savedTheme === 'oldweb' ? 'oldweb' : 'neon');
+    let savedTheme = 'clean';
+    try { savedTheme = localStorage.getItem('theme') || 'clean'; } catch (e) {}
+    applyTheme(THEMES.includes(savedTheme) ? savedTheme : 'clean');
   </script>
 </head>
 <body>
@@ -56,6 +58,7 @@
 
     <!-- HERO -->
     <section id="hero">
+      <h1 class="clean-title clean-only">anderssongamer666</h1>
       <p class="welcome ow-only"><span class="blink">★</span> bem-vindo à minha home page <span class="blink">★</span></p>
       <h1 class="ow-title ow-only">ANDERSSONGAMER666</h1>
 
@@ -170,6 +173,7 @@
         <span class="badge badge-linux">MADE ON<br>LINUX</span>
       </p>
       <p class="ow-only"><a href="#hero">[ voltar ao topo ]</a></p>
+      <p class="clean-only">Visitante nº <span class="counter">000001</span></p>
       <p>Construído com <span>&lt;/&gt;</span> por <span>anderssongamer666</span> &mdash; 2025</p>
       <p class="updated ow-only">Última atualização: <span id="last-updated">--</span></p>
     </footer>
@@ -181,12 +185,14 @@
     const toggle = document.getElementById('theme-toggle');
     const root = document.documentElement;
 
+    const nextTheme = () => THEMES[(THEMES.indexOf(root.dataset.theme) + 1) % THEMES.length];
+
     function labelToggle() {
-      toggle.textContent = root.dataset.theme === 'neon' ? 'Old Web' : 'Neon';
+      toggle.textContent = THEME_LABELS[nextTheme()];
     }
 
     toggle.addEventListener('click', () => {
-      const theme = root.dataset.theme === 'neon' ? 'oldweb' : 'neon';
+      const theme = nextTheme();
       applyTheme(theme);
       try { localStorage.setItem('theme', theme); } catch (e) {}
       labelToggle();
@@ -295,7 +301,9 @@
       visits = (parseInt(localStorage.getItem('visits'), 10) || 0) + 1;
       localStorage.setItem('visits', visits);
     } catch (e) {}
-    document.getElementById('counter').textContent = String(visits).padStart(6, '0');
+    document.querySelectorAll('.counter').forEach(el => {
+      el.textContent = String(visits).padStart(6, '0');
+    });
 
     /* ── ÚLTIMA ATUALIZAÇÃO ── */
     document.getElementById('last-updated').textContent =

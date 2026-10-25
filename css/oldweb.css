@@ -30,6 +30,7 @@ body {
 
 /* elements that only exist in the neon theme */
 .neon-only,
+.clean-only,
 #bg-canvas { display: none !important; }
 
 a { color: var(--green); }
