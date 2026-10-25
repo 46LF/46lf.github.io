@@ -275,6 +275,7 @@
       busy = true;
       opener = document.activeElement;
       switcher.hidden = false;
+      startPCB();
       document.body.style.overflow = 'hidden';
       layout('hidden');
       switcher.offsetHeight; // commit the start state before animating
@@ -321,6 +322,236 @@
         openWindow(sections.indexOf(document.querySelector(link.getAttribute('href'))));
       });
     });
+
+    /* ── PCB BACKGROUND (matrix): signals running along circuit traces behind open windows ── */
+    const pcb = document.createElement('canvas');
+    pcb.className = 'switcher-pcb';
+    switcher.prepend(pcb);
+    const pctx = pcb.getContext('2d');
+    const PCB_GRID = 22;
+    const PCB_TAIL = 70;
+    const PCB_FRAME_MS = 1000 / 30;
+    const DIRS = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+    let board = null; // the static board, pre-rendered once per size
+    let traces = [];
+    let pulses = [];
+    let pcbRunning = false;
+    let pcbLast = 0;
+
+    function buildBoard() {
+      const w = pcb.width = window.innerWidth;
+      const h = pcb.height = window.innerHeight;
+      const cols = Math.ceil(w / PCB_GRID);
+      const rows = Math.ceil(h / PCB_GRID);
+      const used = new Uint8Array(cols * rows);
+      const free = (c, r) => c >= 0 && r >= 0 && c < cols && r < rows && !used[r * cols + c];
+      const take = (c, r) => { used[r * cols + c] = 1; };
+
+      // chips first; their pins are where most traces start
+      const chips = [];
+      const starts = [];
+      const chipCount = Math.max(2, Math.round(w * h / 200000));
+      for (let k = 0; k < chipCount * 4 && chips.length < chipCount; k++) {
+        const cw = 3 + Math.floor(Math.random() * 4);
+        const ch = 2 + Math.floor(Math.random() * 3);
+        const c0 = 2 + Math.floor(Math.random() * (cols - cw - 4));
+        const r0 = 2 + Math.floor(Math.random() * (rows - ch - 4));
+        let ok = true;
+        for (let r = r0 - 2; r <= r0 + ch + 1 && ok; r++) for (let c = c0 - 2; c <= c0 + cw + 1; c++) if (!free(c, r)) { ok = false; break; }
+        if (!ok) continue;
+        for (let r = r0; r < r0 + ch; r++) for (let c = c0; c < c0 + cw; c++) take(c, r);
+        chips.push([c0, r0, cw, ch]);
+        for (let c = c0; c < c0 + cw; c++) starts.push([c, r0 - 1, 6], [c, r0 + ch, 2]);
+        for (let r = r0; r < r0 + ch; r++) starts.push([c0 - 1, r, 4], [c0 + cw, r, 0]);
+      }
+      for (let k = 0; k < cols * rows / 5; k++) {
+        starts.push([Math.floor(Math.random() * cols), Math.floor(Math.random() * rows), Math.floor(Math.random() * 8)]);
+      }
+
+      // route each trace through free cells, bending 45° now and then
+      traces = [];
+      for (let [c, r, dir] of starts) {
+        if (!free(c, r)) continue;
+        const cells = [[c, r]];
+        take(c, r);
+        const maxLen = 4 + Math.floor(Math.random() * 28);
+        while (cells.length < maxLen) {
+          if (cells.length > 2 && Math.random() < 0.18) dir = (dir + (Math.random() < 0.5 ? 1 : 7)) % 8;
+          const [dc, dr] = DIRS[dir];
+          // a diagonal step can't squeeze between two taken cells (that would cross a trace)
+          if (!free(c + dc, r + dr) || (dc && dr && !free(c + dc, r) && !free(c, r + dr))) break;
+          c += dc;
+          r += dr;
+          take(c, r);
+          cells.push([c, r]);
+        }
+        if (cells.length < 3) continue;
+
+        // keep the end points and corners, in pixels
+        const pts = cells
+          .filter((p, i) => i === 0 || i === cells.length - 1 ||
+            p[0] - cells[i - 1][0] !== cells[i + 1][0] - p[0] || p[1] - cells[i - 1][1] !== cells[i + 1][1] - p[1])
+          .map(([x, y]) => [(x + 0.5) * PCB_GRID, (y + 0.5) * PCB_GRID]);
+        const lens = [0];
+        for (let i = 1; i < pts.length; i++) {
+          lens.push(lens[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+        }
+        traces.push({ pts, lens, length: lens[lens.length - 1] });
+      }
+
+      board = document.createElement('canvas');
+      board.width = w;
+      board.height = h;
+      const b = board.getContext('2d');
+      b.fillStyle = '#010d05';
+      b.fillRect(0, 0, w, h);
+      b.lineCap = b.lineJoin = 'round';
+
+      b.strokeStyle = '#0d3d1b';
+      b.lineWidth = 3;
+      for (const tr of traces) {
+        b.beginPath();
+        tr.pts.forEach(([x, y], i) => (i ? b.lineTo(x, y) : b.moveTo(x, y)));
+        b.stroke();
+      }
+
+      // pads at both ends of every trace
+      b.lineWidth = 2;
+      b.strokeStyle = '#1b6b33';
+      b.fillStyle = '#010d05';
+      for (const tr of traces) {
+        for (const [x, y] of [tr.pts[0], tr.pts[tr.pts.length - 1]]) {
+          b.beginPath();
+          b.arc(x, y, 4, 0, Math.PI * 2);
+          b.fill();
+          b.stroke();
+        }
+      }
+
+      // chips with their pins
+      for (const [c0, r0, cw, ch] of chips) {
+        const x = c0 * PCB_GRID + 3, y = r0 * PCB_GRID + 3;
+        const cwPx = cw * PCB_GRID - 6, chPx = ch * PCB_GRID - 6;
+        b.fillStyle = '#1b6b33';
+        for (let c = 0; c < cw; c++) {
+          b.fillRect((c0 + c + 0.5) * PCB_GRID - 3, y - 7, 6, chPx + 14);
+        }
+        for (let r = 0; r < ch; r++) {
+          b.fillRect(x - 7, (r0 + r + 0.5) * PCB_GRID - 3, cwPx + 14, 6);
+        }
+        b.fillStyle = '#040806';
+        b.fillRect(x, y, cwPx, chPx);
+        b.strokeStyle = '#1b6b33';
+        b.strokeRect(x + 0.5, y + 0.5, cwPx - 1, chPx - 1);
+        b.beginPath();
+        b.arc(x + 7, y + 7, 2.5, 0, Math.PI * 2);
+        b.fillStyle = '#1b6b33';
+        b.fill();
+      }
+
+      // dark vignette so the window in front stands out
+      const v = b.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.75);
+      v.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      v.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
+      b.fillStyle = v;
+      b.fillRect(0, 0, w, h);
+
+      pulses = Array.from({ length: Math.min(70, traces.length) }, () => {
+        const p = spawnPulse();
+        p.d = Math.random() * p.tr.length;
+        return p;
+      });
+    }
+
+    function spawnPulse() {
+      return {
+        tr: traces[Math.floor(Math.random() * traces.length)],
+        d: 0,
+        reverse: Math.random() < 0.5,
+        speed: 0.08 + Math.random() * 0.2, // px per ms
+        color: Math.random() < 0.25 ? '#b14cff' : '#00ff41',
+      };
+    }
+
+    // point at distance `d` along a trace
+    function pointAt(tr, d) {
+      d = Math.max(0, Math.min(tr.length, d));
+      let i = 1;
+      while (i < tr.lens.length - 1 && tr.lens[i] < d) i++;
+      const [x0, y0] = tr.pts[i - 1];
+      const [x1, y1] = tr.pts[i];
+      const f = (d - tr.lens[i - 1]) / (tr.lens[i] - tr.lens[i - 1] || 1);
+      return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f];
+    }
+
+    // the stretch of a trace between distances a and b, corners included
+    function tracePath(tr, a, b) {
+      const pts = [pointAt(tr, a)];
+      tr.lens.forEach((l, i) => { if (l > a && l < b) pts.push(tr.pts[i]); });
+      pts.push(pointAt(tr, b));
+      return pts;
+    }
+
+    function strokePath(pts) {
+      pctx.beginPath();
+      pts.forEach(([x, y], i) => (i ? pctx.lineTo(x, y) : pctx.moveTo(x, y)));
+      pctx.stroke();
+    }
+
+    function pcbFrame(t) {
+      if (switcher.hidden) { pcbRunning = false; return; }
+      requestAnimationFrame(pcbFrame);
+      if (t - pcbLast < PCB_FRAME_MS) return;
+      const dt = Math.min(100, t - pcbLast);
+      pcbLast = t;
+
+      if (pcb.width !== window.innerWidth || pcb.height !== window.innerHeight) buildBoard();
+      pctx.drawImage(board, 0, 0);
+      if (!animated()) return;
+
+      pctx.lineCap = pctx.lineJoin = 'round';
+      pulses.forEach((p, i) => {
+        p.d += p.speed * dt;
+        if (p.d > p.tr.length + PCB_TAIL) p = pulses[i] = spawnPulse();
+
+        // head position and the tail behind it, in trace distance
+        const head = p.reverse ? p.tr.length - p.d : p.d;
+        const tail = p.reverse ? head + PCB_TAIL : head - PCB_TAIL;
+        const [a, b] = head < tail ? [head, tail] : [tail, head];
+        const mid = (head + tail) / 2;
+
+        pctx.strokeStyle = p.color;
+        pctx.globalAlpha = 0.25;
+        pctx.lineWidth = 3;
+        strokePath(tracePath(p.tr, a, b));
+        pctx.globalAlpha = 0.7;
+        strokePath(head < tail ? tracePath(p.tr, a, mid) : tracePath(p.tr, mid, b));
+
+        if (p.d <= p.tr.length) {
+          const [x, y] = pointAt(p.tr, head);
+          pctx.fillStyle = p.color;
+          pctx.globalAlpha = 0.3;
+          pctx.beginPath();
+          pctx.arc(x, y, 6, 0, Math.PI * 2);
+          pctx.fill();
+          pctx.globalAlpha = 1;
+          pctx.fillStyle = '#eafff0';
+          pctx.beginPath();
+          pctx.arc(x, y, 2.2, 0, Math.PI * 2);
+          pctx.fill();
+        }
+      });
+      pctx.globalAlpha = 1;
+    }
+
+    function startPCB() {
+      if (!board || pcb.width !== window.innerWidth || pcb.height !== window.innerHeight) buildBoard();
+      pctx.drawImage(board, 0, 0);
+      if (pcbRunning) return;
+      pcbRunning = true;
+      pcbLast = performance.now();
+      requestAnimationFrame(pcbFrame);
+    }
 
     /* ── PIXEL SHARK (matrix): a front-facing head pops up and eats the menu ── */
     const SHARK_W = 41; // odd, so the head is symmetric around a center pixel
