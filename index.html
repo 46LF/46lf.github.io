@@ -155,21 +155,6 @@
       </section>
 
     </main>
-
-    <footer>
-      <p class="badges mx-only">
-        <span class="badge badge-html">HTML<br>POWERED</span>
-        <span class="badge badge-metal">METAL<br>NOW!</span>
-        <span class="badge badge-res">800x600<br>BEST VIEW</span>
-        <span class="badge badge-linux">MADE ON<br>LINUX</span>
-      </p>
-      <p class="mx-only"><a href="#hero">[ voltar ao topo ]</a></p>
-      <p class="insert-coin mx-only blink">INSERT COIN</p>
-      <p class="mx-only">Visitante nº <span class="counter">000001</span></p>
-      <p>Construído com <span>&lt;/&gt;</span> por <span>46LF</span> &mdash; 2025</p>
-      <p class="updated mx-only">Última atualização: <span id="last-updated">--</span></p>
-    </footer>
-
   </div>
 
   <script>
@@ -578,20 +563,6 @@
       }
     }
     setTimeout(type, 400);
-
-    /* ── CONTADOR DE VISITAS (local) ── */
-    let visits = 1;
-    try {
-      visits = (parseInt(localStorage.getItem('visits'), 10) || 0) + 1;
-      localStorage.setItem('visits', visits);
-    } catch (e) {}
-    document.querySelectorAll('.counter').forEach(el => {
-      el.textContent = String(visits).padStart(6, '0');
-    });
-
-    /* ── ÚLTIMA ATUALIZAÇÃO ── */
-    document.getElementById('last-updated').textContent =
-      new Date(document.lastModified).toLocaleDateString('pt-BR');
   </script>
 </body>
 </html>

@@ -469,19 +469,6 @@
 
     .social-link span:first-child { font-size: 1.3rem; }
 
-    /* ── FOOTER ── */
-    footer {
-      position: relative;
-      z-index: 10;
-      text-align: center;
-      padding: 2rem;
-      border-top: 1px solid rgba(57,255,20,0.1);
-      font-size: 0.75rem;
-      color: rgba(200,200,224,0.4);
-    }
-
-    footer span { color: var(--green); }
-
     /* ── ANIMATIONS ── */
     @keyframes fadeDown {
       from { opacity: 0; transform: translateY(-20px); }
