@@ -266,42 +266,6 @@
     /* ── ABOUT ── */
     #about { background: rgba(13,13,26,0.6); }
 
-    .about-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: center;
-    }
-
-    .about-avatar {
-      display: flex;
-      justify-content: center;
-    }
-
-    .avatar-ring {
-      width: 240px;
-      height: 240px;
-      border-radius: 50%;
-      border: 2px solid var(--green);
-      box-shadow: 0 0 30px var(--green), inset 0 0 30px rgba(57,255,20,0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 6rem;
-      position: relative;
-      animation: rotateBorder 8s linear infinite;
-      background: radial-gradient(circle, #0d0d1a 60%, transparent);
-    }
-
-    .avatar-ring::before {
-      content: '';
-      position: absolute;
-      width: 260px; height: 260px;
-      border-radius: 50%;
-      border: 1px solid rgba(155,48,255,0.4);
-      animation: rotateBorder 12s linear infinite reverse;
-    }
-
     .about-text h3 {
       font-family: 'Orbitron', sans-serif;
       font-size: 1.3rem;
@@ -480,11 +444,6 @@
       50%       { transform: translateY(10px); }
     }
 
-    @keyframes rotateBorder {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(360deg); }
-    }
-
     @keyframes glitch1 {
       0%, 100% { transform: translate(0); opacity: 0; }
       10%       { transform: translate(-2px, 1px); opacity: 0.8; }
@@ -536,8 +495,6 @@
     @media (max-width: 768px) {
       nav { padding: 1rem 1.5rem; }
       nav ul { gap: 1rem; }
-      .about-grid { grid-template-columns: 1fr; }
-      .avatar-ring { width: 180px; height: 180px; font-size: 4rem; }
     }
 
     @media (max-width: 520px) {

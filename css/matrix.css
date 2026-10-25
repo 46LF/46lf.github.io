@@ -275,41 +275,6 @@ h3::before { content: '// '; color: var(--purple); }
 
 .reveal { opacity: 1; transform: none; }
 
-/* ── ABOUT: player card ── */
-.about-grid {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.avatar-ring {
-  position: relative;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    repeating-linear-gradient(0deg, rgba(0, 255, 65, 0.12) 0 2px, transparent 2px 4px),
-    radial-gradient(circle, var(--dark), var(--bg));
-  border: 3px solid;
-  border-image: var(--chrome) 1;
-  font-size: 4rem;
-}
-
-.avatar-ring::after {
-  content: 'PLAYER 1 · LV 99';
-  position: absolute;
-  left: -3px;
-  right: -3px;
-  bottom: -30px;
-  background: var(--green);
-  color: var(--bg);
-  font-size: 1rem;
-  text-align: center;
-  letter-spacing: 1px;
-}
-
 /* tags: inventory slots */
 .tags {
   display: grid;
@@ -552,8 +517,6 @@ h3::before { content: '// '; color: var(--purple); }
   body { font-size: 20px; }
   .game-menu a, .game-menu button { font-size: 1.4rem; }
   .game-menu small { display: none; }
-  .about-grid { grid-template-columns: minmax(0, 1fr); }
-  .about-avatar { width: 140px; margin: 0 auto 32px; }
   .project-card { grid-template-columns: minmax(0, 1fr); }
   .project-card > *, .project-icon { grid-column: 1; grid-row: auto; }
   .project-icon { width: 72px; margin-bottom: 10px; }
