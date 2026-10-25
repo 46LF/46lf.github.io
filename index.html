@@ -368,34 +368,38 @@
       }));
     }
 
-    /* ── MATRIX BACKGROUND: small matrices that grow, pulse and shrink away ── */
+    /* ── MATRIX BACKGROUND: small spinning matrix cubes that grow, pulse and shrink away ── */
     const GLYPHS = '01234567890123456789ABCDEF';
-    const CELL = 16;
+    const CELL = 15;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let matrices = [];
     let lastStatic = 0;
 
     const randomGlyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
 
+    // the 12 edges of a cube, as pairs of corner indexes (corner bits = x, y, z)
+    const CUBE_EDGES = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+
     function spawnMatrix(t) {
-      const rows = 2 + Math.floor(Math.random() * 3);
-      const cols = 2 + Math.floor(Math.random() * 3);
+      const n = Math.random() < 0.15 ? 4 : 2 + Math.floor(Math.random() * 2);
       const r = Math.random();
       return {
         x: Math.random() * W,
         y: Math.random() * H,
-        rows,
-        cols,
-        cells: Array.from({ length: rows * cols }, randomGlyph),
+        n,
+        cells: Array.from({ length: n ** 3 }, randomGlyph),
         born: t,
         life: 3000 + Math.random() * 4000,
         maxScale: 0.6 + Math.random() * 1.1,
+        rotX: Math.random() * Math.PI * 2,
+        rotY: Math.random() * Math.PI * 2,
+        spin: (0.0004 + Math.random() * 0.0008) * (Math.random() < 0.5 ? -1 : 1),
         color: r > 0.9 ? '#b14cff' : r > 0.82 ? '#d4ffd9' : '#00ff41',
       };
     }
 
     function resetMatrices(t = performance.now()) {
-      const count = Math.min(60, Math.round(W * H / 26000));
+      const count = Math.min(40, Math.round(W * H / 36000));
       // stagger the ages so they don't all pop in at once
       matrices = Array.from({ length: count }, () => {
         const m = spawnMatrix(t);
@@ -404,28 +408,52 @@
       });
     }
 
-    function drawMatrix(m, scale) {
-      const w = m.cols * CELL;
-      const h = m.rows * CELL;
+    function drawCube(m, scale, t) {
+      const size = CELL * scale;
+      const half = (m.n - 1) / 2;
+      const ay = m.rotY + t * m.spin;
+      const ax = m.rotX + t * m.spin * 0.7;
+      const [cy, sy, cx, sx] = [Math.cos(ay), Math.sin(ay), Math.cos(ax), Math.sin(ax)];
+
+      // rotate (in cell units) around Y then X, then apply a little perspective
+      const project = (x, y, z) => {
+        const x1 = x * cy + z * sy;
+        const z1 = -x * sy + z * cy;
+        const y2 = y * cx - z1 * sx;
+        const z2 = y * sx + z1 * cx;
+        const f = 400 / (400 + z2 * size);
+        return [m.x + x1 * size * f, m.y + y2 * size * f, z2];
+      };
+
       ctx.save();
-      ctx.translate(m.x, m.y);
-      ctx.scale(scale, scale);
-      ctx.globalAlpha = Math.min(1, scale / m.maxScale + 0.15);
+      const fade = Math.min(1, scale / m.maxScale + 0.15);
       ctx.strokeStyle = ctx.fillStyle = m.color;
       ctx.shadowColor = m.color;
       ctx.shadowBlur = 6;
 
-      // brackets [ ]
-      ctx.lineWidth = 1.5;
+      // wireframe, half a cell outside the outermost glyphs
+      const e = half + 0.5;
+      const corners = Array.from({ length: 8 }, (_, i) =>
+        project(i & 1 ? e : -e, i & 2 ? e : -e, i & 4 ? e : -e));
+      ctx.globalAlpha = fade * 0.55;
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(-w / 2 + 2, -h / 2); ctx.lineTo(-w / 2 - 3, -h / 2); ctx.lineTo(-w / 2 - 3, h / 2); ctx.lineTo(-w / 2 + 2, h / 2);
-      ctx.moveTo(w / 2 - 2, -h / 2);  ctx.lineTo(w / 2 + 3, -h / 2);  ctx.lineTo(w / 2 + 3, h / 2);  ctx.lineTo(w / 2 - 2, h / 2);
+      CUBE_EDGES.forEach(([a, b]) => {
+        ctx.moveTo(corners[a][0], corners[a][1]);
+        ctx.lineTo(corners[b][0], corners[b][1]);
+      });
       ctx.stroke();
 
+      // glyphs on the n×n×n lattice; the farther back, the dimmer
+      const depth = Math.max(half * Math.sqrt(3), 0.5);
+      ctx.font = Math.max(6, size * 0.7) + 'px monospace';
       m.cells.forEach((glyph, i) => {
-        const cx = -w / 2 + (i % m.cols + 0.5) * CELL;
-        const cy = -h / 2 + (Math.floor(i / m.cols) + 0.5) * CELL;
-        ctx.fillText(glyph, cx, cy);
+        const gx = i % m.n - half;
+        const gy = Math.floor(i / m.n) % m.n - half;
+        const gz = Math.floor(i / (m.n * m.n)) - half;
+        const [px, py, pz] = project(gx, gy, gz);
+        ctx.globalAlpha = fade * (0.25 + 0.75 * (depth - pz) / (2 * depth));
+        ctx.fillText(glyph, px, py);
       });
       ctx.restore();
     }
@@ -436,7 +464,6 @@
       lastStatic = t;
 
       ctx.clearRect(0, 0, W, H);
-      ctx.font = (CELL - 3) + 'px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
@@ -453,7 +480,7 @@
         if (!reduceMotion && Math.random() < 0.08) {
           m.cells[Math.floor(Math.random() * m.cells.length)] = randomGlyph();
         }
-        if (scale > 0.02) drawMatrix(m, scale);
+        if (scale > 0.02) drawCube(m, scale, reduceMotion ? m.born : t);
       });
     }
 
