@@ -21,7 +21,8 @@
 
     /* elements that only exist in the old web theme */
     .ow-only,
-    .clean-only { display: none !important; }
+    .clean-only,
+    .mx-only { display: none !important; }
 
     /* ── CANVAS BACKGROUND ── */
     #bg-canvas {

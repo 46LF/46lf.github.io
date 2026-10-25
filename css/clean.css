@@ -26,6 +26,7 @@ body {
 /* elements that belong to other themes */
 .neon-only,
 .ow-only,
+.mx-only,
 #bg-canvas { display: none !important; }
 
 /* …except a few old web bits kept as details */

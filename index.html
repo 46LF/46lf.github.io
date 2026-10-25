@@ -1,25 +1,26 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="clean">
+<html lang="pt-BR" data-theme="matrix">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>anderssongamer666 | Dev Portfolio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/matrix.css" id="css-matrix">
   <link rel="stylesheet" href="css/clean.css" id="css-clean">
   <link rel="stylesheet" href="css/style.css" id="css-neon">
   <link rel="stylesheet" href="css/oldweb.css" id="css-oldweb">
   <script>
-    /* ── THEME (clean | oldweb | neon) ── */
-    const THEMES = ['clean', 'oldweb', 'neon'];
-    const THEME_LABELS = { clean: 'Clean', oldweb: 'Old Web', neon: 'Neon' };
+    /* ── THEME (matrix | clean | oldweb | neon) ── */
+    const THEMES = ['matrix', 'clean', 'oldweb', 'neon'];
+    const THEME_LABELS = { matrix: 'Matrix', clean: 'Clean', oldweb: 'Old Web', neon: 'Neon' };
     function applyTheme(theme) {
       document.documentElement.dataset.theme = theme;
       THEMES.forEach(t => { document.getElementById('css-' + t).disabled = t !== theme; });
     }
-    let savedTheme = 'clean';
-    try { savedTheme = localStorage.getItem('theme') || 'clean'; } catch (e) {}
-    applyTheme(THEMES.includes(savedTheme) ? savedTheme : 'clean');
+    let savedTheme = 'matrix';
+    try { savedTheme = localStorage.getItem('theme') || 'matrix'; } catch (e) {}
+    applyTheme(THEMES.includes(savedTheme) ? savedTheme : 'matrix');
   </script>
 </head>
 <body>
@@ -31,6 +32,7 @@
     <!-- NAV -->
     <nav>
       <div class="nav-logo neon-only">A666</div>
+      <div class="hud-player mx-only">P1 <b>ANDERSSONGAMER666</b> · HP ████████ · $ 666</div>
       <h2 class="ow-only">Menu</h2>
       <ul>
         <li class="ow-only"><a href="#hero">Início</a></li>
@@ -58,6 +60,12 @@
 
     <!-- HERO -->
     <section id="hero">
+      <div class="mx-title mx-only">
+        <p class="mx-pre">A666 Soft apresenta</p>
+        <h1 class="mx-logo">ANDERSSON<span>GAMER666</span></h1>
+        <p class="mx-edition">Portfolio Edition · v2.0.0.6</p>
+      </div>
+
       <h1 class="clean-title clean-only">anderssongamer666</h1>
       <p class="welcome ow-only"><span class="blink">★</span> bem-vindo à minha home page <span class="blink">★</span></p>
       <h1 class="ow-title ow-only">ANDERSSONGAMER666</h1>
@@ -75,6 +83,15 @@
         <a href="#contact" class="btn btn-secondary">Contato</a>
       </div>
       <div class="scroll-indicator neon-only">&#8964;</div>
+
+      <ul class="game-menu mx-only">
+        <li><a href="#about">Novo Jogo <small>sobre mim</small></a></li>
+        <li><a href="#projects">Carregar <small>projetos</small></a></li>
+        <li><a href="#contact">Multiplayer <small>contato</small></a></li>
+        <li><button type="button" id="menu-options">Opções <small>trocar estética</small></button></li>
+      </ul>
+      <p class="press-start mx-only blink">PRESS START</p>
+      <p class="mx-copy mx-only">↑ ↓ navegar · ENTER selecionar</p>
 
       <div class="marquee ow-only">
         <span>+++ Você acaba de entrar na home page do anderssongamer666 +++ tech, metal e eletrônica +++ assine o livro de visitas (em breve) +++ site em construção permanente +++</span>
@@ -173,6 +190,7 @@
         <span class="badge badge-linux">MADE ON<br>LINUX</span>
       </p>
       <p class="ow-only"><a href="#hero">[ voltar ao topo ]</a></p>
+      <p class="insert-coin mx-only blink">INSERT COIN</p>
       <p class="clean-only">Visitante nº <span class="counter">000001</span></p>
       <p>Construído com <span>&lt;/&gt;</span> por <span>anderssongamer666</span> &mdash; 2025</p>
       <p class="updated ow-only">Última atualização: <span id="last-updated">--</span></p>
@@ -199,6 +217,20 @@
     });
     labelToggle();
 
+    /* ── GAME MENU (matrix) ── */
+    document.getElementById('menu-options').addEventListener('click', () => toggle.click());
+
+    const menuItems = [...document.querySelectorAll('.game-menu a, .game-menu button')];
+    document.addEventListener('keydown', e => {
+      if (root.dataset.theme !== 'matrix' || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+      const i = menuItems.indexOf(document.activeElement);
+      if (i === -1 && window.scrollY > window.innerHeight / 2) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      const next = i === -1 ? 0 : (i + step + menuItems.length) % menuItems.length;
+      menuItems[next].focus();
+    });
+
     /* ── PARTICLE / STAR CANVAS ── */
     const canvas = document.getElementById('bg-canvas');
     const ctx = canvas.getContext('2d');
@@ -222,10 +254,38 @@
       }));
     }
 
-    function drawParticles() {
+    /* ── MATRIX RAIN ── */
+    const GLYPHS = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン0123456789';
+    const FONT_SIZE = 18;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let drops = [];
+    let lastRain = 0;
+
+    function resetRain() {
+      drops = Array.from({ length: Math.ceil(W / FONT_SIZE) }, () => Math.random() * -H / FONT_SIZE);
+    }
+
+    function drawRain(t) {
+      if (reduceMotion || t - lastRain < 50) return;
+      lastRain = t;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.font = FONT_SIZE + 'px monospace';
+
+      drops.forEach((y, i) => {
+        ctx.fillStyle = Math.random() > 0.975 ? '#d4ffd9' : '#00ff41';
+        ctx.fillText(GLYPHS[Math.floor(Math.random() * GLYPHS.length)], i * FONT_SIZE, y * FONT_SIZE);
+        drops[i] = y * FONT_SIZE > H && Math.random() > 0.975 ? 0 : y + 1;
+      });
+    }
+
+    function drawParticles(t = 0) {
       requestAnimationFrame(drawParticles);
 
-      // canvas is hidden in the old web theme
+      if (root.dataset.theme === 'matrix') return drawRain(t);
+
+      // canvas is hidden in the clean and old web themes
       if (root.dataset.theme !== 'neon') return;
 
       ctx.clearRect(0, 0, W, H);
@@ -266,9 +326,10 @@
       });
     }
 
-    window.addEventListener('resize', () => { resize(); createParticles(); });
+    window.addEventListener('resize', () => { resize(); createParticles(); resetRain(); });
     resize();
     createParticles();
+    resetRain();
     drawParticles();
 
     /* ── SCROLL REVEAL ── */
