@@ -366,10 +366,6 @@ h3::before { content: '// '; color: var(--purple); }
 }
 
 /* ── WINDOW SWITCHER (3D alt-tab) ── */
-#hero { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
-
-.switching #hero { transform: perspective(1200px) rotateX(10deg) scale(0.86); }
-
 .switcher {
   position: fixed;
   inset: 0;
@@ -407,14 +403,33 @@ h3::before { content: '// '; color: var(--purple); }
   background: #000c04;
   pointer-events: none;
   box-shadow: 0 0 30px rgba(177, 76, 255, 0.35);
-  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.34s, filter 0.34s;
+  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.34s;
   will-change: transform;
 }
 
+.switcher-body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.switcher-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.34s;
+}
+
 .switcher-card.is-focus {
-  overflow-y: auto;
   pointer-events: auto;
   box-shadow: 0 0 40px rgba(0, 255, 65, 0.3);
+}
+
+.switcher-card.is-focus .switcher-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .switcher-card .section-title { position: sticky; top: 0; z-index: 1; }
@@ -507,7 +522,7 @@ h3::before { content: '// '; color: var(--purple); }
   .blink,
   .game-menu *::before { animation: none !important; }
   html { scroll-behavior: auto; }
-  #hero, .switcher-card { transition: none; }
+  .switcher-card, .switcher-shade { transition: none; }
   .switcher { animation: none; }
 }
 

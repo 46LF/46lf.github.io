@@ -202,6 +202,16 @@
       const card = section.cloneNode(true);
       card.removeAttribute('id');
       card.classList.add('switcher-card');
+
+      // content scrolls inside its own box, so the card itself never scrolls
+      // and the shade (which dims cards at the back of the stack) always covers it
+      const body = document.createElement('div');
+      body.className = 'switcher-body';
+      body.append(...card.childNodes);
+      const shade = document.createElement('div');
+      shade.className = 'switcher-shade';
+      card.append(body, shade);
+
       const close = document.createElement('button');
       close.type = 'button';
       close.className = 'switcher-close';
@@ -234,7 +244,7 @@
         const focused = mode === 'focus' && d === 0;
         card.classList.toggle('is-focus', focused);
         card.style.zIndex = n - d;
-        card.style.filter = mode === 'stack' ? `brightness(${1 - d * 0.3})` : '';
+        card.lastChild.style.opacity = mode === 'stack' ? d * 0.3 : 0;
         if (mode === 'hidden') {
           card.style.transform = stackTransform(d) + ' translateY(70vh)';
           card.style.opacity = 0;
@@ -269,7 +279,6 @@
       document.body.style.overflow = 'hidden';
       layout('hidden');
       switcher.offsetHeight; // commit the start state before animating
-      root.classList.add('switching');
       layout('stack');
       if (animated()) await wait(STEP_MS + 120);
       await cycleTo(target);
@@ -293,7 +302,6 @@
       if (busy) return;
       busy = true;
       layout('stack');
-      root.classList.remove('switching');
       if (animated()) await wait(STEP_MS);
       layout('hidden');
       if (animated()) await wait(STEP_MS);
@@ -496,6 +504,7 @@
     function pcbFrame(t) {
       if (switcher.hidden) { pcbRunning = false; return; }
       requestAnimationFrame(pcbFrame);
+      if (busy) { pcbLast = t; return; }
       if (t - pcbLast < PCB_FRAME_MS) return;
       const dt = Math.min(100, t - pcbLast);
       pcbLast = t;
