@@ -368,37 +368,99 @@
       }));
     }
 
-    /* ── MATRIX RAIN ── */
-    const GLYPHS = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン0123456789';
-    const FONT_SIZE = 18;
+    /* ── MATRIX BACKGROUND: small matrices that grow, pulse and shrink away ── */
+    const GLYPHS = '01234567890123456789ABCDEF';
+    const CELL = 16;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let drops = [];
-    let lastRain = 0;
+    let matrices = [];
+    let lastStatic = 0;
 
-    function resetRain() {
-      drops = Array.from({ length: Math.ceil(W / FONT_SIZE) }, () => Math.random() * -H / FONT_SIZE);
+    const randomGlyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+
+    function spawnMatrix(t) {
+      const rows = 2 + Math.floor(Math.random() * 3);
+      const cols = 2 + Math.floor(Math.random() * 3);
+      const r = Math.random();
+      return {
+        x: Math.random() * W,
+        y: Math.random() * H,
+        rows,
+        cols,
+        cells: Array.from({ length: rows * cols }, randomGlyph),
+        born: t,
+        life: 3000 + Math.random() * 4000,
+        maxScale: 0.6 + Math.random() * 1.1,
+        color: r > 0.9 ? '#b14cff' : r > 0.82 ? '#d4ffd9' : '#00ff41',
+      };
     }
 
-    function drawRain(t) {
-      if (reduceMotion || t - lastRain < 50) return;
-      lastRain = t;
+    function resetMatrices(t = performance.now()) {
+      const count = Math.min(60, Math.round(W * H / 26000));
+      // stagger the ages so they don't all pop in at once
+      matrices = Array.from({ length: count }, () => {
+        const m = spawnMatrix(t);
+        m.born -= Math.random() * m.life;
+        return m;
+      });
+    }
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-      ctx.fillRect(0, 0, W, H);
-      ctx.font = FONT_SIZE + 'px monospace';
+    function drawMatrix(m, scale) {
+      const w = m.cols * CELL;
+      const h = m.rows * CELL;
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = Math.min(1, scale / m.maxScale + 0.15);
+      ctx.strokeStyle = ctx.fillStyle = m.color;
+      ctx.shadowColor = m.color;
+      ctx.shadowBlur = 6;
 
-      drops.forEach((y, i) => {
-        const r = Math.random();
-        ctx.fillStyle = r > 0.975 ? '#d4ffd9' : r > 0.95 ? '#b14cff' : '#00ff41';
-        ctx.fillText(GLYPHS[Math.floor(Math.random() * GLYPHS.length)], i * FONT_SIZE, y * FONT_SIZE);
-        drops[i] = y * FONT_SIZE > H && Math.random() > 0.975 ? 0 : y + 1;
+      // brackets [ ]
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2 + 2, -h / 2); ctx.lineTo(-w / 2 - 3, -h / 2); ctx.lineTo(-w / 2 - 3, h / 2); ctx.lineTo(-w / 2 + 2, h / 2);
+      ctx.moveTo(w / 2 - 2, -h / 2);  ctx.lineTo(w / 2 + 3, -h / 2);  ctx.lineTo(w / 2 + 3, h / 2);  ctx.lineTo(w / 2 - 2, h / 2);
+      ctx.stroke();
+
+      m.cells.forEach((glyph, i) => {
+        const cx = -w / 2 + (i % m.cols + 0.5) * CELL;
+        const cy = -h / 2 + (Math.floor(i / m.cols) + 0.5) * CELL;
+        ctx.fillText(glyph, cx, cy);
+      });
+      ctx.restore();
+    }
+
+    function drawMatrices(t) {
+      // reduced motion: a still field, redrawn now and then
+      if (reduceMotion && t - lastStatic < 1000) return;
+      lastStatic = t;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.font = (CELL - 3) + 'px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      matrices.forEach((m, i) => {
+        let p = (t - m.born) / m.life;
+        if (p >= 1) {
+          m = matrices[i] = spawnMatrix(t);
+          p = 0;
+        }
+        // grow, pulse, shrink
+        const scale = reduceMotion
+          ? m.maxScale * 0.8
+          : m.maxScale * Math.sin(Math.PI * p) * (1 + 0.12 * Math.sin(p * Math.PI * 6));
+        if (!reduceMotion && Math.random() < 0.08) {
+          m.cells[Math.floor(Math.random() * m.cells.length)] = randomGlyph();
+        }
+        if (scale > 0.02) drawMatrix(m, scale);
       });
     }
 
     function drawParticles(t = 0) {
       requestAnimationFrame(drawParticles);
 
-      if (root.dataset.theme === 'matrix') return drawRain(t);
+      if (root.dataset.theme === 'matrix') return drawMatrices(t);
 
       ctx.clearRect(0, 0, W, H);
 
@@ -438,10 +500,10 @@
       });
     }
 
-    window.addEventListener('resize', () => { resize(); createParticles(); resetRain(); });
+    window.addEventListener('resize', () => { resize(); createParticles(); resetMatrices(); });
     resize();
     createParticles();
-    resetRain();
+    resetMatrices();
     drawParticles();
 
     /* ── SCROLL REVEAL ── */
