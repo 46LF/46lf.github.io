@@ -176,7 +176,11 @@
     labelToggle();
 
     /* ── GAME MENU (matrix) ── */
-    document.getElementById('menu-options').addEventListener('click', () => toggle.click());
+    document.getElementById('menu-options').addEventListener('click', async () => {
+      if (!(await sharkEatsMenu())) return;
+      toggle.click();
+      restoreMenu();
+    });
 
     const menuItems = [...document.querySelectorAll('.game-menu a, .game-menu button')];
     document.addEventListener('keydown', e => {
@@ -304,17 +308,160 @@
       if (animated()) await wait(STEP_MS);
       switcher.hidden = true;
       document.body.style.overflow = '';
+      restoreMenu();
       if (opener) opener.focus({ preventScroll: true });
       busy = false;
     }
 
     document.querySelectorAll('.game-menu a').forEach(link => {
-      link.addEventListener('click', e => {
+      link.addEventListener('click', async e => {
         if (root.dataset.theme !== 'matrix') return;
         e.preventDefault();
+        if (!(await sharkEatsMenu())) return;
         openWindow(sections.indexOf(document.querySelector(link.getAttribute('href'))));
       });
     });
+
+    /* ── PIXEL SHARK (matrix): eats the menu before an option runs ── */
+    const SHARK_COLORS = { D: '#3e4c5c', B: '#7d91a6', W: '#e6eef4', K: '#000', T: '#fff', M: '#7a0016' };
+    const SHARK_FRAMES = [
+      [ // mouth closed
+        '................DD',
+        '...............DDD',
+        '..............DDDD',
+        'DD...........DDDDD',
+        'DDD.....DDDDDDDDDDDDDDDDD',
+        '.DDD..DDBBBBBBBBBBBBBBBBBBDD',
+        '..DDDDBBBBBBBBBBBBBBBBBBBBKBBD',
+        '..DDDDBBBBBBBBBBBBBBBBBBBBBBBBD',
+        '.DDD..BBWWWWWWWWWWWWWWWWTWTWTWD',
+        'DDD.....WWWWWWWWWWWWWWWWWWWWWD',
+        'DD........WWWWWWWWWWWWWWWWWW',
+        '............BB.......BB',
+        '...........BB.......BB',
+        '',
+      ],
+      [ // mouth open
+        '................DD',
+        '...............DDD',
+        '..............DDDD',
+        'DD...........DDDDD',
+        'DDD.....DDDDDDDDDDDDDDDDD',
+        '.DDD..DDBBBBBBBBBBBBBBBBBBDD',
+        '..DDDDBBBBBBBBBBBBBBBBBBBBKBBD',
+        '..DDDDBBBBBBBBBBBBBBBBBBBBBBBBD',
+        '.DDD..BBWWWWWWWWWWWWWWWWTMTMTMT',
+        'DDD.....WWWWWWWWWWWWWWMMMMMMMM',
+        'DD........WWWWWWWWWWWWMMMMMMM',
+        '...........WWWWWWWWWWWTMTMTMT',
+        '............BB.....WWWWWWWWWD',
+        '...........BB',
+      ],
+    ];
+    const SHARK_W = 32;
+    const SHARK_H = SHARK_FRAMES[0].length;
+
+    // pixel rows -> svg rects (horizontal runs merged)
+    function sharkSVG(rows, cls) {
+      let rects = '';
+      rows.forEach((row, y) => {
+        for (let x = 0; x < row.length; ) {
+          const c = row[x];
+          let run = 1;
+          while (row[x + run] === c) run++;
+          if (SHARK_COLORS[c]) rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${SHARK_COLORS[c]}"/>`;
+          x += run;
+        }
+      });
+      return `<svg class="${cls}" viewBox="0 0 ${SHARK_W} ${SHARK_H}" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+    }
+
+    const gameMenu = document.querySelector('.game-menu');
+    const SHARK_HTML = sharkSVG(SHARK_FRAMES[0], 'shark-closed') + sharkSVG(SHARK_FRAMES[1], 'shark-open');
+    let sharkBusy = false;
+    let menuEaten = null;
+
+    // clip-path that hides everything left of `x`, with a jagged bite edge
+    function biteClip(x, h) {
+      const pts = [`${x}px 0`, '100% 0', '100% 100%', `${x}px 100%`];
+      for (let y = h, k = 0; y > 0; y -= 12, k++) pts.push(`${x + (k % 2 ? 0 : 12)}px ${y}px`);
+      return `polygon(${pts.join(', ')})`;
+    }
+
+    function spawnCrumb(x, y) {
+      const crumb = document.createElement('div');
+      crumb.className = 'shark-crumb';
+      crumb.style.left = x + 'px';
+      crumb.style.top = y + 'px';
+      document.body.appendChild(crumb);
+      const dx = (Math.random() - 0.3) * 120;
+      const dy = (Math.random() - 0.5) * 80;
+      crumb.animate([
+        { transform: 'translate(0, 0)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy + 140}px)`, opacity: 0 },
+      ], { duration: 600 + Math.random() * 400, easing: 'cubic-bezier(.3,.6,.6,1)' }).finished.then(() => crumb.remove());
+    }
+
+    // resolves false if a shark is already busy
+    async function sharkEatsMenu() {
+      if (sharkBusy || busy) return false;
+      if (!animated()) return true;
+      sharkBusy = true;
+
+      const r = gameMenu.getBoundingClientRect();
+      const px = Math.max(4, Math.round(r.height / 11));
+      const w = SHARK_W * px;
+      const h = SHARK_H * px;
+      const mouth = w * 0.95; // the mouth sits at the shark's right edge...
+      const top = r.top + r.height / 2 - 9.5 * px; // ...around pixel row 9.5
+
+      const shark = document.createElement('div');
+      shark.className = 'shark';
+      shark.style.width = w + 'px';
+      shark.style.height = h + 'px';
+      shark.style.top = top + 'px';
+      shark.innerHTML = SHARK_HTML;
+      document.body.appendChild(shark);
+
+      // the shark swims at a constant speed; the bite edge follows its mouth
+      const EAT_MS = 1100;
+      const speed = r.width / EAT_MS; // px per ms
+      const start = r.left - mouth - 60;
+      const end = window.innerWidth + 40;
+
+      const swim = shark.animate([
+        { transform: `translateX(${start}px)` },
+        { transform: `translateX(${end}px)` },
+      ], { duration: (end - start) / speed, easing: 'linear' });
+
+      menuEaten = gameMenu.animate([
+        { clipPath: biteClip(-14, r.height) },
+        { clipPath: biteClip(r.width + 2, r.height) },
+      ], { duration: EAT_MS, delay: 60 / speed, easing: 'linear', fill: 'forwards' });
+
+      const crumbs = setInterval(() => {
+        const sx = new DOMMatrix(getComputedStyle(shark).transform).m41 + mouth;
+        if (sx > r.left && sx < r.right) {
+          for (let k = 0; k < 3; k++) spawnCrumb(sx, r.top + Math.random() * r.height);
+        }
+      }, 60);
+
+      await menuEaten.finished;
+      clearInterval(crumbs);
+      swim.finished.then(() => shark.remove());
+      await wait(150);
+      sharkBusy = false;
+      return true;
+    }
+
+    // the menu respawns after it was eaten
+    function restoreMenu() {
+      if (!menuEaten) return;
+      menuEaten.cancel();
+      menuEaten = null;
+      gameMenu.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }, { opacity: 1 }, { opacity: 0 }, { opacity: 1 }],
+        { duration: 600, easing: 'steps(6, end)' });
+    }
 
     switcher.addEventListener('click', e => {
       if (e.target.closest('[data-close]') || e.target === stage) closeWindow();
