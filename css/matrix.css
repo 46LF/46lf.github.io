@@ -267,7 +267,8 @@ main {
   padding: 0 16px;
 }
 
-main section {
+main section,
+.switcher-card {
   margin: 0 0 48px;
   background: rgba(0, 12, 4, 0.9);
   border: 3px solid;
@@ -308,7 +309,8 @@ main section {
 .projects-grid,
 .contact-center { padding: 20px; }
 
-main p { margin: 0 0 14px; color: var(--pale); }
+main p,
+.switcher-card p { margin: 0 0 14px; color: var(--pale); }
 
 h3 {
   margin: 0 0 10px;
@@ -493,6 +495,99 @@ footer span { color: var(--green); }
   vertical-align: middle;
 }
 
+/* ── WINDOW SWITCHER (3D alt-tab) ── */
+#hero,
+nav { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.5s; }
+
+.switching #hero {
+  transform: perspective(1200px) rotateX(10deg) scale(0.86);
+  filter: blur(3px) brightness(0.4);
+}
+
+.switching nav { filter: brightness(0.4); }
+
+.switcher {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: radial-gradient(ellipse at 50% 40%, rgba(40, 0, 70, 0.55), rgba(0, 0, 0, 0.8));
+  animation: fade-in 0.3s ease both;
+}
+
+.switcher[hidden] { display: none; }
+
+.switcher-stage {
+  position: absolute;
+  inset: 0 0 48px;
+  perspective: 1400px;
+  perspective-origin: 50% 35%;
+}
+
+.switcher-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(860px, 92vw);
+  height: min(76vh, 680px);
+  margin: 0;
+  overflow: hidden;
+  background: #000c04;
+  pointer-events: none;
+  box-shadow: 0 0 40px rgba(177, 76, 255, 0.35), 0 30px 60px rgba(0, 0, 0, 0.8);
+  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.34s, filter 0.34s;
+  will-change: transform;
+}
+
+.switcher-card.is-focus {
+  overflow-y: auto;
+  pointer-events: auto;
+  box-shadow: 0 0 40px rgba(0, 255, 65, 0.3);
+}
+
+.switcher-card .section-title { position: sticky; top: 0; z-index: 1; }
+
+/* real close button laid over the chrome "_ □ ×" of the title bar */
+.switcher-close {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  z-index: 2;
+  width: 76px;
+  height: 26px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.switcher-close:focus-visible { outline: 2px solid var(--purple); }
+
+.switcher-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  margin: 0;
+  color: var(--dim);
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.switcher-hint button {
+  padding: 0 8px;
+  background: none;
+  border: 1px solid var(--purple);
+  color: var(--purple);
+  font: inherit;
+  cursor: pointer;
+}
+
+.switcher-hint button:hover,
+.switcher-hint button:focus-visible { background: var(--purple); color: var(--bg); outline: none; }
+
+@keyframes fade-in { from { opacity: 0; } }
+
 /* ── ANIMATIONS ── */
 .blink { animation: blink 1s steps(2, start) infinite; }
 
@@ -502,6 +597,8 @@ footer span { color: var(--green); }
   .blink,
   .game-menu *::before { animation: none !important; }
   html { scroll-behavior: auto; }
+  #hero, nav, .switcher-card { transition: none; }
+  .switcher { animation: none; }
 }
 
 /* ── RESPONSIVE ── */

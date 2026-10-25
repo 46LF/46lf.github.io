@@ -197,13 +197,153 @@
 
     const menuItems = [...document.querySelectorAll('.game-menu a, .game-menu button')];
     document.addEventListener('keydown', e => {
-      if (root.dataset.theme !== 'matrix' || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+      if (root.dataset.theme !== 'matrix' || switcherOpen() || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
       const i = menuItems.indexOf(document.activeElement);
       if (i === -1 && window.scrollY > window.innerHeight / 2) return;
       e.preventDefault();
       const step = e.key === 'ArrowDown' ? 1 : -1;
       const next = i === -1 ? 0 : (i + step + menuItems.length) % menuItems.length;
       menuItems[next].focus();
+    });
+
+    /* ── WINDOW SWITCHER (matrix): 3D alt-tab into a section ── */
+    const sections = [...document.querySelectorAll('main > section')];
+    const switcher = document.createElement('div');
+    switcher.className = 'switcher';
+    switcher.hidden = true;
+    switcher.innerHTML = `
+      <div class="switcher-stage"></div>
+      <p class="switcher-hint">
+        <button type="button" data-step="-1">◀</button>
+        <button type="button" data-step="1">▶</button>
+        trocar janela ·
+        <button type="button" data-close>[ ESC ] voltar ao menu</button>
+      </p>`;
+    document.body.appendChild(switcher);
+
+    const stage = switcher.querySelector('.switcher-stage');
+    const cards = sections.map(section => {
+      const card = section.cloneNode(true);
+      card.removeAttribute('id');
+      card.classList.add('switcher-card');
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'switcher-close';
+      close.dataset.close = '';
+      close.setAttribute('aria-label', 'Fechar janela');
+      card.prepend(close);
+      stage.appendChild(card);
+      return card;
+    });
+
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const animated = () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const STEP_MS = 340;
+    let front = 0;       // card at the front of the stack
+    let busy = false;
+    let opener = null;   // menu item to give focus back to
+
+    function switcherOpen() { return !switcher.hidden; }
+
+    // d = depth in the stack (0 = front); windows recede up and to the right
+    function stackTransform(d) {
+      return `translate(-50%, -50%) translate3d(${d * 80 - 60}px, ${-d * 60 + 20}px, ${-d * 260 - 220}px) rotateY(-24deg)`;
+    }
+
+    function layout(mode) {
+      const n = cards.length;
+      cards.forEach((card, i) => {
+        const d = (i - front + n) % n;
+        const focused = mode === 'focus' && d === 0;
+        card.classList.toggle('is-focus', focused);
+        card.style.zIndex = n - d;
+        card.style.filter = mode === 'stack' ? `brightness(${1 - d * 0.3})` : '';
+        if (mode === 'hidden') {
+          card.style.transform = stackTransform(d) + ' translateY(70vh)';
+          card.style.opacity = 0;
+        } else if (focused) {
+          card.style.transform = 'translate(-50%, -50%)';
+          card.style.opacity = 1;
+        } else if (mode === 'focus') {
+          card.style.transform = stackTransform(d + 1);
+          card.style.opacity = 0;
+        } else {
+          card.style.transform = stackTransform(d);
+          card.style.opacity = 1;
+        }
+      });
+    }
+
+    // spin the stack one window at a time until `target` is in front
+    async function cycleTo(target, dir = 1) {
+      while (front !== target) {
+        front = (front + dir + cards.length) % cards.length;
+        layout('stack');
+        if (animated()) await wait(STEP_MS);
+      }
+    }
+
+    async function openWindow(target) {
+      if (busy) return;
+      busy = true;
+      opener = document.activeElement;
+      switcher.hidden = false;
+      document.body.style.overflow = 'hidden';
+      layout('hidden');
+      switcher.offsetHeight; // commit the start state before animating
+      root.classList.add('switching');
+      layout('stack');
+      if (animated()) await wait(STEP_MS + 120);
+      await cycleTo(target);
+      layout('focus');
+      cards[front].querySelector('.switcher-close').focus({ preventScroll: true });
+      busy = false;
+    }
+
+    async function switchWindow(step) {
+      if (busy) return;
+      busy = true;
+      layout('stack');
+      if (animated()) await wait(STEP_MS);
+      await cycleTo((front + step + cards.length) % cards.length, step);
+      layout('focus');
+      cards[front].querySelector('.switcher-close').focus({ preventScroll: true });
+      busy = false;
+    }
+
+    async function closeWindow() {
+      if (busy) return;
+      busy = true;
+      layout('stack');
+      root.classList.remove('switching');
+      if (animated()) await wait(STEP_MS);
+      layout('hidden');
+      if (animated()) await wait(STEP_MS);
+      switcher.hidden = true;
+      document.body.style.overflow = '';
+      if (opener) opener.focus({ preventScroll: true });
+      busy = false;
+    }
+
+    document.querySelectorAll('.game-menu a').forEach(link => {
+      link.addEventListener('click', e => {
+        if (root.dataset.theme !== 'matrix') return;
+        e.preventDefault();
+        openWindow(sections.indexOf(document.querySelector(link.getAttribute('href'))));
+      });
+    });
+
+    switcher.addEventListener('click', e => {
+      if (e.target.closest('[data-close]') || e.target === stage) closeWindow();
+      const stepBtn = e.target.closest('[data-step]');
+      if (stepBtn) switchWindow(Number(stepBtn.dataset.step));
+    });
+
+    document.addEventListener('keydown', e => {
+      if (!switcherOpen()) return;
+      if (e.key === 'Escape') closeWindow();
+      else if (e.key === 'ArrowRight') { e.preventDefault(); switchWindow(1); }
+      else if (e.key === 'ArrowLeft')  { e.preventDefault(); switchWindow(-1); }
     });
 
     /* ── PARTICLE / STAR CANVAS ── */
