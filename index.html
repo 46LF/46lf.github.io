@@ -250,7 +250,8 @@
       ctx.font = FONT_SIZE + 'px monospace';
 
       drops.forEach((y, i) => {
-        ctx.fillStyle = Math.random() > 0.975 ? '#d4ffd9' : '#00ff41';
+        const r = Math.random();
+        ctx.fillStyle = r > 0.975 ? '#d4ffd9' : r > 0.95 ? '#b14cff' : '#00ff41';
         ctx.fillText(GLYPHS[Math.floor(Math.random() * GLYPHS.length)], i * FONT_SIZE, y * FONT_SIZE);
         drops[i] = y * FONT_SIZE > H && Math.random() > 0.975 ? 0 : y + 1;
       });
