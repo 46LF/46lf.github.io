@@ -67,7 +67,7 @@
         <li><button type="button" id="menu-options">Opções <small>trocar estética</small></button></li>
       </ul>
       <p class="press-start mx-only blink">PRESS START</p>
-      <p class="mx-copy mx-only">↑ ↓ navegar · ENTER selecionar</p>
+      <p class="mx-copy mx-only keys-only">↑ ↓ navegar · ENTER selecionar</p>
 
     </section>
 
@@ -192,8 +192,8 @@
       <p class="switcher-hint">
         <button type="button" data-step="-1">◀</button>
         <button type="button" data-step="1">▶</button>
-        trocar janela ·
-        <button type="button" data-close>[ ESC ] voltar ao menu</button>
+        <span class="keys-only">trocar janela ·</span>
+        <button type="button" data-close><span class="keys-only">[ ESC ] </span>voltar ao menu</button>
       </p>`;
     document.body.appendChild(switcher);
 
@@ -223,7 +223,8 @@
 
     // d = depth in the stack (0 = front); windows recede up and to the right
     function stackTransform(d) {
-      return `translate(-50%, -50%) translate3d(${d * 80 - 60}px, ${-d * 60 + 20}px, ${-d * 260 - 220}px) rotateY(-24deg)`;
+      const k = Math.max(0.4, Math.min(1, window.innerWidth / 900));
+      return `translate(-50%, -50%) translate3d(${(d * 80 - 60) * k}px, ${(-d * 60 + 20) * k}px, ${(-d * 260 - 220) * k}px) rotateY(-24deg)`;
     }
 
     function layout(mode) {
@@ -329,7 +330,8 @@
 
     function buildBoard() {
       const w = pcb.width = window.innerWidth;
-      const h = pcb.height = window.innerHeight;
+      const h = pcb.height = tallestViewport();
+      pcb.style.height = h + 'px';
       const cols = Math.ceil(w / PCB_GRID);
       const rows = Math.ceil(h / PCB_GRID);
       const used = new Uint8Array(cols * rows);
@@ -439,18 +441,22 @@
       }
 
       // dark vignette so the window in front stands out
-      const v = b.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.75);
+      const vh = window.innerHeight;
+      const v = b.createRadialGradient(w / 2, vh / 2, Math.min(w, vh) * 0.2, w / 2, vh / 2, Math.max(w, vh) * 0.75);
       v.addColorStop(0, 'rgba(0, 0, 0, 0)');
       v.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
       b.fillStyle = v;
       b.fillRect(0, 0, w, h);
 
-      pulses = Array.from({ length: Math.min(70, traces.length) }, () => {
+      // fewer pulses on smaller screens
+      pulses = Array.from({ length: Math.min(70, Math.round(w * vh / 9000), traces.length) }, () => {
         const p = spawnPulse();
         p.d = Math.random() * p.tr.length;
         return p;
       });
     }
+
+    const boardOutdated = () => !board || pcb.width !== window.innerWidth || pcb.height < window.innerHeight;
 
     function spawnPulse() {
       return {
@@ -494,7 +500,7 @@
       const dt = Math.min(100, t - pcbLast);
       pcbLast = t;
 
-      if (pcb.width !== window.innerWidth || pcb.height !== window.innerHeight) buildBoard();
+      if (boardOutdated()) buildBoard();
       pctx.drawImage(board, 0, 0);
       if (!animated()) return;
 
@@ -534,7 +540,7 @@
     }
 
     function startPCB() {
-      if (!board || pcb.width !== window.innerWidth || pcb.height !== window.innerHeight) buildBoard();
+      if (boardOutdated()) buildBoard();
       pctx.drawImage(board, 0, 0);
       if (pcbRunning) return;
       pcbRunning = true;
@@ -714,9 +720,16 @@
 
     let W, H, particles;
 
+    // canvases are sized to the tallest the viewport gets, so the mobile address bar
+    // showing/hiding (which fires resize) doesn't have to reset them
+    function tallestViewport() {
+      return Math.max(window.innerHeight, window.screen.height || 0);
+    }
+
     function resize() {
       W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
+      H = canvas.height = tallestViewport();
+      canvas.style.height = H + 'px';
     }
 
     function createParticles() {
@@ -771,7 +784,7 @@
       const r = Math.random();
       return {
         x: Math.random() * W,
-        y: Math.random() * H,
+        y: Math.random() * window.innerHeight,
         n,
         half,
         // lattice positions, centered on the cube
@@ -912,7 +925,12 @@
       });
     }
 
-    window.addEventListener('resize', () => { resize(); createParticles(); resetMatrices(); });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth === W && window.innerHeight <= H) return;
+      resize();
+      createParticles();
+      resetMatrices();
+    });
     resize();
     createParticles();
     resetMatrices();
